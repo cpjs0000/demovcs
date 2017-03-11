@@ -1,0 +1,10 @@
+#!/bin/sh
+
+rm -fr *.lck
+while true
+do
+    logger -s -t DemoVCS-routine "Checking state..."
+    ./demo-vcs-state-update
+    logger -s -t DemoVCS-routine "Sleeping for 60 seconds..."
+    sleep 60
+done

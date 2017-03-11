@@ -1,0 +1,14 @@
+#This is configuration file for DemoVCS system
+
+
+#UNIX user name for notifications
+#If not set, corrent user ID will be used
+user=ls
+
+#name of target file
+#If not set, "testfile" will be used
+file_name=testfile
+
+#VCS's data directory
+#If not set, "data" will be used
+data_dir=data

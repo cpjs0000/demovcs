@@ -1,0 +1,37 @@
+#!/bin/sh
+
+daemonize()
+{
+    < /dev/null > /dev/null 2>&1 &
+
+    ( 
+	trap "" TERM 
+	while true 
+	do 
+	
+	    sleep 1 
+	done 
+    ) &
+    echo $! > daemon.pid
+    echo "daemonized with PID: $!"
+}
+
+notify()
+{
+    user=ls
+    who | grep $user | awk '{ print $2 }'|xargs -I{} sh -c "echo $1 > /dev/{}"
+}
+
+
+ppid=$(cat daemon.pid)
+if [ -f daemon.pid ]
+then
+    if [ `ps -A|grep -c $ppid` == 1 ]
+    then
+	echo -en "daemon is running, PID: "$ppid"\n"
+    else
+	daemonize
+    fi
+else
+    daemonize
+fi

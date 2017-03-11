@@ -1,0 +1,19 @@
+#!/bin/sh
+
+. ./config
+versions=${data_dir}/versions
+journal=${data_dir}/journal
+rm -f ${versions}/* ${journal} ${file_name}
+for ((i=0;$i<24;i++))
+do
+    echo "This is file version $i" > testfile$i
+    cs=$(cksum testfile$i|awk '{ print $1}')
+    mv testfile$i ${versions}/$cs
+    echo $cs >> ${data_dir}/tl
+    echo -n "$i "
+    #sleep 1
+done
+tac ${data_dir}/tl > ${data_dir}/journal
+rm ${data_dir}/tl
+echo "sample test file" > testfile
+

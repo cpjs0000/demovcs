@@ -1,0 +1,166 @@
+#!/bin/sh
+
+#logging to syslog/journald
+log()
+{
+    logger -t DemoVCS "$1"
+}
+
+#for sending notifications to given USER
+notify()
+{
+    who | grep ${user} | awk '{ print $2 }'|\
+    xargs -I{} sh -c "echo DemoVCS: $1 > /dev/{}"
+}
+
+#converts DAC rights for chmod-readable octal format
+get_mask()
+{
+    m=`ls -l1 $1 |tr -s ' ' '\n'|head -n1|\
+    sed 's/\-/0/g;s/r/4/g;s/w/2/g;s/x/1/g'`
+    #flag	:	[-|l|d|b|c|p|s]
+    #user	:	[-|r|w|x]
+    #group	:	[-|r|w|x]
+    #other	:	[-|r|w|x]
+    f=`echo $m|sed 's/\(.\).*/\1/'`
+    u=`echo $m|sed 's/.\(.\)\(.\)\(.\).*/\1 + \2 + \3/'`
+    g=`echo $m|sed 's/....\(.\)\(.\)\(.\).*/\1 + \2 + \3/'`
+    o=`echo $m|sed 's/.......\(.\)\(.\)\(.\)/\1 + \2 + \3/'`
+    u=`expr $u`;g=`expr $g`;o=`expr $o`
+    echo $f$u$g$o
+    #bash dependent
+    #echo ${m:0:1}$((${m:1:1}+${m:2:1}+${m:3:1}))$((${m:4:1}+${m:5:1}+${m:6:1}))$((${m:7:1}+${m:8:1}+${m:9:1}))
+}
+
+timestamp()
+{
+    awk 'BEGIN {srand(); print srand()}'
+}
+
+. ./config
+
+#user name
+user=${user:-$(id -un)}
+
+#name of file
+file_name=${file_name:-testfile}
+
+#VCS's data
+data_dir=${data_dir:-data}
+
+#VCS's journal file
+journal=${data_dir}/journal
+
+#VCS's objects directory
+versions_dir=${data_dir}/versions
+
+log ">>>>>>>>>>>>>>>>>>>>>>>>> starting..."
+
+#locking script
+if [ -f $(basename $0).lck ]
+then
+    err="locked -- already running!!!"
+    log "${err}"
+    notify "${err}"
+    exit 1
+else
+    touch $(basename $0).lck
+    log "succesfully locked script"
+fi
+
+
+#getting timestamp
+t_s=$(timestamp)
+##!!!should be checked consistency!!!
+[ ! -s timestamp ] && timestamp > timestamp
+prev_t_s=$(cat timestamp)
+let t_s_delta=$((${t_s}-${prev_t_s}))
+
+#check if timestamp is older than 1 hour
+if [ ${t_s_delta} -ge 3600 ]
+then
+    log "time of hourly check"
+else
+    if [ ${t_s_delta} -ge 60 ]
+    then
+	log "time of minutely little check"
+    else
+	log "${t_s_delta} s elapsed, too early for check, sorry"
+	rm $(basename $0).lck
+	log "succesfully unlocked script"
+	log "exiting.<<<<<<<<<<<<<<<<<<<<"
+	exit 2
+    fi
+fi
+log "time elapsed: ${t_s_delta} s"
+
+
+#if unchanged, just write log
+#...
+
+#check if we dont have journal
+#
+if [ ! -s ${journal} ]
+then
+    err="file listing is empty!"
+    notify "$err"
+    log "$err"
+    touch ${journal}
+    if [ -s `ls -1 $versions_dir/*|xargs|awk '{ print $1 }'` ]
+    then
+	log "there is non-empty versions of ${file_name}, recovering"
+	ls -1 $versions_dir/*|sed 's/.*\///g' > ${journal}
+    fi
+fi
+
+#check if file doesnt exist
+if [ ! -f ${file_name} ] 
+then
+    err="file does not exist!!!"
+    log "$err"
+    notify "$err"
+    rm $(basename $0).lck
+    log "succesfully unlocked script"
+    log "exiting.<<<<<<<<<<<<<<<<<<<<"
+    exit 1
+else
+    file_mask=$(get_mask ${file_name})
+    log "setting file read-only ${file_mask} -> 0400"
+    chmod 0400 ${file_name}
+fi 
+
+#check if file already stored
+#
+latest_version=`head -n1 ${journal}`
+check_sum=`cksum ${file_name}|sed 's/\ .*//g'`
+if [ `grep -c ${check_sum} ${journal}` = 0 ]
+then 
+#store old fname
+    old=`tail -n1 ${journal}`
+    log "new version found: (CRC: ${latest_version} -> ${check_sum})"
+#cksum new version to upper line of log
+    echo "${check_sum}" > ${journal}.new
+    head -n23 ${journal} >> ${journal}.new
+#cp new version to versions dir
+    cp ${file_name} $versions_dir/${check_sum}
+#delete oldest version and remove oldest line
+    if [ `wc -l ${journal}|awk '{ print $1 }'` -gt 24 ]
+    then
+	rm -f $versions_dir/$old
+    fi
+    mv ${journal}.new ${journal}
+else
+    log "latest version (CRC: ${latest_version}) is unchanged"
+fi
+
+#unlock file
+log "reverting file to read-write state"
+chmod ${file_mask} ${file_name}
+
+#writing timestamp
+timestamp > timestamp
+
+#unlocking script
+rm $(basename $0).lck
+log "succesfully unlocked script"
+log "exiting.<<<<<<<<<<<<<<<<<<<<"
