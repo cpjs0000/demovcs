@@ -1,3 +1,3 @@
 # demovcs
-# sample version control system
-# based on POSIX-1003.1 shell scripts
+sample file version control system
+based on POSIX-1003.1 shell scripts
