@@ -65,7 +65,7 @@ then
     exit 1
 else
     touch $(basename $0).lck
-    log "succesfully locked script"
+    log "successfully locked script"
 fi
 
 
@@ -87,7 +87,7 @@ else
     else
 	log "${t_s_delta} s elapsed, too early for check, sorry"
 	rm $(basename $0).lck
-	log "succesfully unlocked script"
+	log "successfully unlocked script"
 	log "exiting.<<<<<<<<<<<<<<<<<<<<"
 	exit 2
     fi
@@ -120,7 +120,7 @@ then
     log "$err"
     notify "$err"
     rm $(basename $0).lck
-    log "succesfully unlocked script"
+    log "successfully unlocked script"
     log "exiting.<<<<<<<<<<<<<<<<<<<<"
     exit 1
 else
@@ -162,5 +162,5 @@ timestamp > timestamp
 
 #unlocking script
 rm $(basename $0).lck
-log "succesfully unlocked script"
+log "successfully unlocked script"
 log "exiting.<<<<<<<<<<<<<<<<<<<<"
